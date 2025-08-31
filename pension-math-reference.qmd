@@ -1,28 +1,5 @@
 ---
-title: "Pension Mathematics Reference Guide"
-subtitle: "For Claude Code Integration and Simulation Modeling"
-author: "Your Name"
-date: today
-format:
-  pdf:
-    documentclass: article
-    toc: true
-    number-sections: true
-    colorlinks: true
-    geometry:
-      - top=1in
-      - left=1in
-      - right=1in
-      - bottom=1in
-    fontsize: 11pt
-    highlight-style: github
-  html:
-    toc: true
-    toc-location: left
-    number-sections: true
-    highlight-style: github
-    theme: cosmo
-    code-fold: false
+# Just chapter-specific settings
 execute:
   echo: true
   warning: false
@@ -78,13 +55,19 @@ Where:
 ```{r}
 #| label: salary-projection
 # Salary projection function
-project_salary <- function(entry_salary, entry_age, current_age, 
-                          merit_scale_current, merit_scale_entry,
-                          inflation_rate, productivity_rate) {
+project_salary <- function(
+  entry_salary,
+  entry_age,
+  current_age,
+  merit_scale_current,
+  merit_scale_entry,
+  inflation_rate,
+  productivity_rate
+) {
   years_elapsed <- current_age - entry_age
   merit_factor <- merit_scale_current / merit_scale_entry
   economic_factor <- (1 + inflation_rate + productivity_rate)^years_elapsed
-  
+
   return(entry_salary * merit_factor * economic_factor)
 }
 
@@ -135,11 +118,20 @@ PBO_end = PBO_begin + Service_Cost + Interest_Cost ± Actuarial_Gains_Losses + P
 ```{r}
 #| label: pbo-calculation
 # PBO calculation function
-calculate_pbo_end <- function(pbo_begin, service_cost, interest_cost, 
-                             actuarial_gains_losses, plan_amendments, 
-                             benefits_paid) {
-  pbo_end <- pbo_begin + service_cost + interest_cost + 
-             actuarial_gains_losses + plan_amendments - benefits_paid
+calculate_pbo_end <- function(
+  pbo_begin,
+  service_cost,
+  interest_cost,
+  actuarial_gains_losses,
+  plan_amendments,
+  benefits_paid
+) {
+  pbo_end <- pbo_begin +
+    service_cost +
+    interest_cost +
+    actuarial_gains_losses +
+    plan_amendments -
+    benefits_paid
   return(pbo_end)
 }
 ```
@@ -193,8 +185,11 @@ Where:
 ```{r}
 #| label: benefit-calculation
 # Final average pay benefit calculation
-calculate_final_average_benefit <- function(years_of_service, final_salaries, 
-                                           benefit_multiplier) {
+calculate_final_average_benefit <- function(
+  years_of_service,
+  final_salaries,
+  benefit_multiplier
+) {
   average_salary <- mean(final_salaries)
   return(years_of_service * average_salary * benefit_multiplier)
 }
@@ -233,27 +228,37 @@ calculate_funded_ratio <- function(asset_value, actuarial_liability) {
   return(asset_value / actuarial_liability)
 }
 
-calculate_required_contribution <- function(normal_cost, ual, 
-                                           amortization_period, discount_rate) {
+calculate_required_contribution <- function(
+  normal_cost,
+  ual,
+  amortization_period,
+  discount_rate
+) {
   if (ual <= 0) {
     return(normal_cost)
   }
-  
+
   # Calculate amortization payment
   if (discount_rate == 0) {
     amortization_payment <- ual / amortization_period
   } else {
-    amortization_factor <- discount_rate / (1 - (1 + discount_rate)^(-amortization_period))
+    amortization_factor <- discount_rate /
+      (1 - (1 + discount_rate)^(-amortization_period))
     amortization_payment <- ual * amortization_factor
   }
-  
+
   return(normal_cost + amortization_payment)
 }
 
 # Example calculations
 example_ual <- calculate_ual(1000000, 800000)
 example_funded_ratio <- calculate_funded_ratio(800000, 1000000)
-example_contribution <- calculate_required_contribution(50000, example_ual, 15, 0.07)
+example_contribution <- calculate_required_contribution(
+  50000,
+  example_ual,
+  15,
+  0.07
+)
 
 cat("UAL:", example_ual, "\n")
 cat("Funded Ratio:", example_funded_ratio, "\n")
@@ -331,18 +336,19 @@ Where market discount factors reflect the credit risk and timing of benefit paym
 # Simple pension plan simulation class using R6
 library(R6)
 
-PensionPlan <- R6Class("PensionPlan",
+PensionPlan <- R6Class(
+  "PensionPlan",
   public = list(
     participants = NULL,
     assets = NULL,
     assumptions = NULL,
-    
+
     initialize = function(initial_assets = 0, assumptions = list()) {
       self$assets <- initial_assets
       self$assumptions <- assumptions
       self$participants <- data.frame()
     },
-    
+
     add_participant = function(id, age, salary, service) {
       new_participant <- data.frame(
         id = id,
@@ -352,39 +358,48 @@ PensionPlan <- R6Class("PensionPlan",
       )
       self$participants <- rbind(self$participants, new_participant)
     },
-    
+
     calculate_actuarial_liability = function(discount_rate = 0.07) {
-      if (nrow(self$participants) == 0) return(0)
-      
+      if (nrow(self$participants) == 0) {
+        return(0)
+      }
+
       total_liability <- 0
       for (i in 1:nrow(self$participants)) {
         participant <- self$participants[i, ]
-        
+
         # Simple benefit calculation (1.5% of final salary per year of service)
-        projected_benefit <- participant$salary * 1.02^(65 - participant$age) * 
-                            participant$service * 0.015
-        
+        projected_benefit <- participant$salary *
+          1.02^(65 - participant$age) *
+          participant$service *
+          0.015
+
         # Present value (simplified - assumes retirement at 65)
         years_to_retirement <- max(0, 65 - participant$age)
-        pv_benefit <- projected_benefit / (1 + discount_rate)^years_to_retirement
-        
+        pv_benefit <- projected_benefit /
+          (1 + discount_rate)^years_to_retirement
+
         total_liability <- total_liability + pv_benefit
       }
-      
+
       return(total_liability)
     },
-    
+
     annual_valuation = function() {
       # Age participants
       self$participants$age <- self$participants$age + 1
       self$participants$service <- self$participants$service + 1
-      
+
       # Calculate liabilities
       actuarial_liability <- self$calculate_actuarial_liability()
-      
+
       # Calculate funded ratio
-      funded_ratio <- if (actuarial_liability > 0) self$assets / actuarial_liability else Inf
-      
+      funded_ratio <- if (actuarial_liability > 0) {
+        self$assets / actuarial_liability
+      } else {
+        Inf
+      }
+
       return(list(
         assets = self$assets,
         liabilities = actuarial_liability,

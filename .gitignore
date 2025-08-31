@@ -16,7 +16,7 @@ __pycache__/
 Thumbs.db
 
 # Folders to gitignore
-pension-math-reference_files/
+_book/
 
 # Output files (optional - remove if you want to track PDFs)
 *.pdf

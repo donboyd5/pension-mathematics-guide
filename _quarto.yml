@@ -1,10 +1,18 @@
 project:
-  type: default
+  type: book
+
+book:
+  title: "Pension Mathematics Reference Guide"
+  subtitle: "For Claude Code Integration and Simulation Modeling"
+  author: "Don Boyd (with Claude assistance)"
+  date: today
+  date-format: long
+  chapters:
+    - index.qmd
+    - pension-math-reference.qmd
 
 format:
   html:
     theme: cosmo
-    toc: true
   pdf:
-    documentclass: article
-    toc: true
+    documentclass: book
