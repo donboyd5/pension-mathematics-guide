@@ -15,17 +15,13 @@ format:
 
 # Introduction
 
-This comprehensive reference guide provides essential pension mathematics formulas and implementation examples designed for integration with Claude Code.
+This comprehensive reference guide provides essential pension mathematics formulas, concepts, and implementation examples designed for integration with Claude Code and actuarial simulation models. The guide covers traditional actuarial methods, modern financial economics approaches, and practical implementation in R and Python environments.
 
 ## How to Use This Guide
 
 - **Formulas**: All mathematical expressions in both standard and code-ready format
 - **Implementation**: R code examples throughout
 - **Validation**: Built-in consistency checks
-
-# Introduction
-
-This comprehensive reference guide provides essential pension mathematics formulas, concepts, and implementation examples designed for integration with Claude Code and actuarial simulation models. The guide covers traditional actuarial methods, modern financial economics approaches, and practical implementation in R and Python environments.
 
 # Basic Actuarial Functions
 
