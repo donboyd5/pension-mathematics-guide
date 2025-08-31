@@ -1,0 +1,436 @@
+---
+title: "Pension Mathematics Reference Guide"
+subtitle: "For Claude Code Integration and Simulation Modeling"
+author: "Your Name"
+date: today
+format:
+  pdf:
+    documentclass: article
+    toc: true
+    number-sections: true
+    colorlinks: true
+    geometry:
+      - top=1in
+      - left=1in
+      - right=1in
+      - bottom=1in
+    fontsize: 11pt
+    highlight-style: github
+  html:
+    toc: true
+    toc-location: left
+    number-sections: true
+    highlight-style: github
+    theme: cosmo
+    code-fold: false
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Introduction
+
+This comprehensive reference guide provides essential pension mathematics formulas, concepts, and implementation examples designed for integration with Claude Code and actuarial simulation models. The guide covers traditional actuarial methods, modern financial economics approaches, and practical implementation in R and Python environments.
+
+# Basic Actuarial Functions
+
+## Interest Functions
+The present value of $1 due in n years:
+```
+v^n = 1 / (1 + i)^n
+```
+Where:
+- `v` = discount factor = 1/(1+i)
+- `i` = interest rate
+- `n` = number of years
+
+```{r}
+#| label: present-value-function
+# Present value function in R
+present_value <- function(future_value, interest_rate, years) {
+  return(future_value / (1 + interest_rate)^years)
+}
+
+# Example calculation
+pv_example <- present_value(1000, 0.05, 10)
+cat("Present value of $1000 due in 10 years at 5%:", pv_example)
+```
+
+## Survival Functions
+Probability of survival from age x to age x+t:
+```
+t_p_x = probability of surviving t years from age x
+```
+
+## Salary Functions
+Future salary projection:
+```
+S_x = S_y * (SS_x / SS_y) * [(1 + I)(1 + P)]^(x-y)
+```
+Where:
+- `S_x` = salary at age x
+- `S_y` = entry age salary
+- `SS_x` = merit salary scale at age x
+- `I` = inflation rate
+- `P` = productivity rate
+
+```{r}
+#| label: salary-projection
+# Salary projection function
+project_salary <- function(entry_salary, entry_age, current_age, 
+                          merit_scale_current, merit_scale_entry,
+                          inflation_rate, productivity_rate) {
+  years_elapsed <- current_age - entry_age
+  merit_factor <- merit_scale_current / merit_scale_entry
+  economic_factor <- (1 + inflation_rate + productivity_rate)^years_elapsed
+  
+  return(entry_salary * merit_factor * economic_factor)
+}
+
+# Example
+salary_example <- project_salary(50000, 25, 35, 1.2, 1.0, 0.03, 0.01)
+cat("Projected salary:", salary_example)
+```
+
+## Annuity Functions
+Present value of life annuity:
+```
+a_x = Σ(t=0 to ∞) t_p_x * v^t
+```
+
+# Pension Liability Calculations
+
+## Present Value of Future Benefits (PVFB)
+The actuarial present value of all expected future benefit payments:
+```
+PVFB = Σ expected_future_benefits * discount_factors * survival_probabilities
+```
+
+## Three Key Liability Measures
+
+### 1. Market Liability
+Market value using risk-adjusted discount rates matching traded securities with similar cash flow patterns.
+
+### 2. Solvency Liability  
+Present value using risk-free rates (e.g., Treasury bonds):
+```
+Solvency_Liability = Σ benefit_payments * treasury_discount_factors
+```
+
+### 3. Budget Liability (Actuarial Liability - AL)
+Traditional actuarial accrued liability for funding purposes:
+```
+AL = portion of PVFB attributed to past service
+```
+
+## Benefit Obligation Measures
+
+### Projected Benefit Obligation (PBO)
+Present value of benefits earned to date based on projected future salaries:
+```
+PBO_end = PBO_begin + Service_Cost + Interest_Cost ± Actuarial_Gains_Losses + Plan_Amendments - Benefits_Paid
+```
+
+```{r}
+#| label: pbo-calculation
+# PBO calculation function
+calculate_pbo_end <- function(pbo_begin, service_cost, interest_cost, 
+                             actuarial_gains_losses, plan_amendments, 
+                             benefits_paid) {
+  pbo_end <- pbo_begin + service_cost + interest_cost + 
+             actuarial_gains_losses + plan_amendments - benefits_paid
+  return(pbo_end)
+}
+```
+
+### Service Cost
+Present value of benefits earned in current year:
+```
+Service_Cost = present_value_of_current_year_benefit_accrual
+```
+
+### Interest Cost
+Growth in obligation due to passage of time:
+```
+Interest_Cost = PBO_beginning * discount_rate
+```
+
+```{r}
+#| label: interest-cost
+# Interest cost calculation
+calculate_interest_cost <- function(pbo_beginning, discount_rate) {
+  return(pbo_beginning * discount_rate)
+}
+```
+
+# Cost Methods
+
+## Unit Credit Method
+Allocates costs based on benefits accrued each year under the plan formula.
+
+**Normal Cost:**
+```
+NC = present_value_of_benefit_accrued_in_current_year
+```
+
+**Actuarial Liability:**
+```
+AL = present_value_of_benefits_accrued_to_date
+```
+
+## Projected Unit Credit Method
+Like Unit Credit but incorporates expected future salary increases.
+
+**For final average pay plans:**
+```
+Projected_Annual_Benefit = k * (years_of_service) * (1/n) * Σ(final_n_years_salary)
+```
+Where:
+- `k` = benefit multiplier (e.g., 0.015 for 1.5%)
+- `n` = averaging period
+
+```{r}
+#| label: benefit-calculation
+# Final average pay benefit calculation
+calculate_final_average_benefit <- function(years_of_service, final_salaries, 
+                                           benefit_multiplier) {
+  average_salary <- mean(final_salaries)
+  return(years_of_service * average_salary * benefit_multiplier)
+}
+
+# Example
+final_5_salaries <- c(80000, 82000, 84000, 86000, 88000)
+benefit_example <- calculate_final_average_benefit(30, final_5_salaries, 0.015)
+cat("Annual benefit:", benefit_example)
+```
+
+# Funding Principles
+
+## Basic Funding Equation
+```
+Required_Contribution = Normal_Cost + Amortization_of_Unfunded_Liability
+```
+
+## Unfunded Actuarial Liability (UAL)
+```
+UAL = Actuarial_Liability - Actuarial_Value_of_Assets
+```
+
+## Funded Ratio
+```
+Funded_Ratio = Market_Value_of_Assets / Actuarial_Liability
+```
+
+```{r}
+#| label: funding-calculations
+# Funding calculations
+calculate_ual <- function(actuarial_liability, asset_value) {
+  return(actuarial_liability - asset_value)
+}
+
+calculate_funded_ratio <- function(asset_value, actuarial_liability) {
+  return(asset_value / actuarial_liability)
+}
+
+calculate_required_contribution <- function(normal_cost, ual, 
+                                           amortization_period, discount_rate) {
+  if (ual <= 0) {
+    return(normal_cost)
+  }
+  
+  # Calculate amortization payment
+  if (discount_rate == 0) {
+    amortization_payment <- ual / amortization_period
+  } else {
+    amortization_factor <- discount_rate / (1 - (1 + discount_rate)^(-amortization_period))
+    amortization_payment <- ual * amortization_factor
+  }
+  
+  return(normal_cost + amortization_payment)
+}
+
+# Example calculations
+example_ual <- calculate_ual(1000000, 800000)
+example_funded_ratio <- calculate_funded_ratio(800000, 1000000)
+example_contribution <- calculate_required_contribution(50000, example_ual, 15, 0.07)
+
+cat("UAL:", example_ual, "\n")
+cat("Funded Ratio:", example_funded_ratio, "\n")
+cat("Required Contribution:", example_contribution, "\n")
+```
+
+## Amortization Payments
+```
+Annual_Amortization = UAL * [i / (1 - (1+i)^(-n))]
+```
+Where n is the amortization period.
+
+# Actuarial Assumptions
+
+## Economic Assumptions
+
+### Discount Rate Selection
+- **Funding:** Expected return on plan assets
+- **Accounting:** High-quality corporate bond yields
+- **Market Valuation:** Risk-adjusted rates matching benefit cash flows
+
+### Salary Scale
+```
+Salary_Growth_Rate = Inflation + Productivity + Merit_Increases
+```
+
+## Demographic Assumptions
+
+### Mortality Rates
+```
+q_x = probability of death between age x and x+1
+p_x = 1 - q_x = probability of survival
+```
+
+### Withdrawal/Termination Rates
+```
+w_x = probability of terminating employment at age x
+```
+
+### Retirement Rates
+```
+r_x = probability of retiring at age x
+```
+
+# Financial Economics Approach
+
+## Augmented Balance Sheet
+Views pension plans as corporate assets and liabilities:
+
+**Corporate Balance Sheet Integration:**
+```
+Total_Corporate_Assets = Operating_Assets + Net_Pension_Assets
+Total_Corporate_Liabilities = Operating_Liabilities + Net_Pension_Liabilities
+```
+
+**Tax Adjustments:**
+```
+Net_Pension_Assets = Gross_Pension_Assets * (1 - Corporate_Tax_Rate)
+Net_Pension_Liabilities = Gross_Pension_Liabilities * (1 - Corporate_Tax_Rate)
+```
+
+## Market-Based Liability Valuation
+```
+Market_Liability = Σ benefit_cash_flows * market_discount_factors
+```
+
+Where market discount factors reflect the credit risk and timing of benefit payments.
+
+# Implementation Examples
+
+## Simple Pension Plan Class
+
+```{r}
+#| label: pension-plan-class
+# Simple pension plan simulation class using R6
+library(R6)
+
+PensionPlan <- R6Class("PensionPlan",
+  public = list(
+    participants = NULL,
+    assets = NULL,
+    assumptions = NULL,
+    
+    initialize = function(initial_assets = 0, assumptions = list()) {
+      self$assets <- initial_assets
+      self$assumptions <- assumptions
+      self$participants <- data.frame()
+    },
+    
+    add_participant = function(id, age, salary, service) {
+      new_participant <- data.frame(
+        id = id,
+        age = age,
+        salary = salary,
+        service = service
+      )
+      self$participants <- rbind(self$participants, new_participant)
+    },
+    
+    calculate_actuarial_liability = function(discount_rate = 0.07) {
+      if (nrow(self$participants) == 0) return(0)
+      
+      total_liability <- 0
+      for (i in 1:nrow(self$participants)) {
+        participant <- self$participants[i, ]
+        
+        # Simple benefit calculation (1.5% of final salary per year of service)
+        projected_benefit <- participant$salary * 1.02^(65 - participant$age) * 
+                            participant$service * 0.015
+        
+        # Present value (simplified - assumes retirement at 65)
+        years_to_retirement <- max(0, 65 - participant$age)
+        pv_benefit <- projected_benefit / (1 + discount_rate)^years_to_retirement
+        
+        total_liability <- total_liability + pv_benefit
+      }
+      
+      return(total_liability)
+    },
+    
+    annual_valuation = function() {
+      # Age participants
+      self$participants$age <- self$participants$age + 1
+      self$participants$service <- self$participants$service + 1
+      
+      # Calculate liabilities
+      actuarial_liability <- self$calculate_actuarial_liability()
+      
+      # Calculate funded ratio
+      funded_ratio <- if (actuarial_liability > 0) self$assets / actuarial_liability else Inf
+      
+      return(list(
+        assets = self$assets,
+        liabilities = actuarial_liability,
+        funded_ratio = funded_ratio,
+        participants = nrow(self$participants)
+      ))
+    }
+  )
+)
+
+# Example usage
+plan <- PensionPlan$new(initial_assets = 1000000)
+plan$add_participant(1, 35, 50000, 10)
+plan$add_participant(2, 45, 75000, 20)
+plan$add_participant(3, 25, 40000, 5)
+
+valuation_results <- plan$annual_valuation()
+print(valuation_results)
+```
+
+# Key Relationships and Validation Checks
+
+## Fundamental Equation
+```
+PVFB = Actuarial_Liability + Normal_Cost + PVFNC
+```
+Where PVFNC = Present Value of Future Normal Costs
+
+## Consistency Checks
+1. **Asset-Liability Reconciliation:**
+   ```
+   Funded_Status = Assets - Liabilities
+   ```
+
+2. **Cost Method Validation:**
+   ```
+   Sum of all Normal Costs (present value) + Initial AL = PVFB
+   ```
+
+3. **Experience Gains/Losses:**
+   ```
+   Actuarial_Gain = Expected_Liability - Actual_Liability
+   ```
+
+# Conclusion
+
+This reference guide provides the essential mathematical foundation for building pension simulation models. All formulas are implementable in R or Python environments and designed for integration with Claude Code for enhanced actuarial modeling capabilities.
+
+The guide will be updated as new concepts and methods are incorporated into the pension simulation framework.

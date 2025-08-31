@@ -1,0 +1,25 @@
+# Quarto
+/.quarto/
+_site/
+
+# R
+.Rhistory
+.RData
+.Ruserdata
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Folders to gitignore
+pension-math-reference_files/
+
+# Output files (optional - remove if you want to track PDFs)
+*.pdf
+*.html
+**/*.quarto_ipynb
+
