@@ -11,11 +11,13 @@ format:
     columns: 1
 ---
 
-{{< pagebreak >}}
+```{=typst}
+#pagebreak()
+```
 
 # Introduction
 
-This comprehensive reference guide provides essential pension mathematics formulas, concepts, and implementation examples designed for integration with Claude Code and actuarial simulation models. The guide covers traditional actuarial methods, modern financial economics approaches, and practical implementation in R and Python environments.
+This comprehensive reference guide provides essential pension mathematics formulas, concepts, and implementation examples designed for integration with Claude Code and actuarial simulation models. The guide covers traditional actuarial methods [@winklevoss_1993], modern financial economics approaches [@aaa_soa_2006], and practical implementation in R and Python environments.
 
 ## How to Use This Guide
 
@@ -26,7 +28,8 @@ This comprehensive reference guide provides essential pension mathematics formul
 # Basic Actuarial Functions
 
 ## Interest Functions
-The present value of $1 due in n years:
+
+The present value of $1 due in n years [@bowers_1997]:
 ```
 v^n = 1 / (1 + i)^n
 ```
@@ -115,7 +118,7 @@ Solvency_Liability = Σ benefit_payments * treasury_discount_factors
 ```
 
 ### 3. Budget Liability (Actuarial Liability - AL)
-Traditional actuarial accrued liability for funding purposes:
+Traditional actuarial accrued liability for funding purposes [@aaa_2004]:
 ```
 AL = portion of PVFB attributed to past service
 ```
@@ -216,6 +219,7 @@ cat("Annual benefit:", benefit_example)
 # Funding Principles
 
 ## Basic Funding Equation
+From fundamental actuarial principles [@aaa_2004]:
 ```
 Required_Contribution = Normal_Cost + Amortization_of_Unfunded_Liability
 ```
@@ -319,7 +323,7 @@ r_x = probability of retiring at age x
 # Financial Economics Approach
 
 ## Augmented Balance Sheet
-Views pension plans as corporate assets and liabilities:
+Following the framework established by the financial economics literature [@aaa_soa_2006], pension plans are viewed as corporate assets and liabilities:
 
 **Corporate Balance Sheet Integration:**
 ```
@@ -462,3 +466,11 @@ Where PVFNC = Present Value of Future Normal Costs
 This reference guide provides the essential mathematical foundation for building pension simulation models. All formulas are implementable in R or Python environments and designed for integration with Claude Code for enhanced actuarial modeling capabilities.
 
 The guide will be updated as new concepts and methods are incorporated into the pension simulation framework.
+
+```{=typst}
+#pagebreak()
+```
+
+```{=typst}
+#bibliography("references.bib", full: true, style: "harvard-cite-them-right")
+```
