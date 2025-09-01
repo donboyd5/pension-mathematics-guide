@@ -320,6 +320,223 @@ w_x = probability of terminating employment at age x
 r_x = probability of retiring at age x
 ```
 
+# Mortality Table Implementation
+
+## Standard Mortality Tables
+
+Mortality tables are fundamental to pension calculations. This section provides practical implementation of standard actuarial tables [@soa_mortality2014].
+
+### Basic Mortality Table Structure
+
+```{r}
+#| label: mortality-table-setup
+# Create a simplified mortality table structure
+# In practice, you would load this from standard tables like RP-2014
+create_sample_mortality_table <- function() {
+  ages <- 20:110
+
+  # Simplified Gompertz-Makeham mortality rates
+  # q_x = A + B * C^x where A = 0.0001, B = 0.00005, C = 1.08
+  q_x <- pmin(0.0001 + 0.00005 * 1.08^ages, 0.95)
+
+  mortality_table <- data.frame(
+    age = ages,
+    q_x = q_x,
+    p_x = 1 - q_x
+  )
+
+  # Calculate survival probabilities from age 20
+  mortality_table$l_x <- numeric(length(ages))
+  mortality_table$l_x[1] <- 100000 # Radix of 100,000
+
+  for (i in 2:length(ages)) {
+    mortality_table$l_x[i] <- mortality_table$l_x[i - 1] *
+      mortality_table$p_x[i - 1]
+  }
+
+  return(mortality_table)
+}
+
+# Create sample table
+mortality_table <- create_sample_mortality_table()
+
+# Display first few rows
+head(mortality_table, 10)
+```
+
+### Survival Probability Functions
+
+```{r}
+#| label: survival-functions
+# Function to calculate t-year survival probability from age x
+calculate_survival_probability <- function(mortality_table, age_x, years_t) {
+  if (
+    age_x < min(mortality_table$age) ||
+      age_x + years_t > max(mortality_table$age)
+  ) {
+    return(0)
+  }
+
+  start_idx <- which(mortality_table$age == age_x)
+  end_idx <- which(mortality_table$age == age_x + years_t)
+
+  if (length(start_idx) == 0 || length(end_idx) == 0) {
+    return(0)
+  }
+
+  return(mortality_table$l_x[end_idx] / mortality_table$l_x[start_idx])
+}
+
+# Function to calculate life annuity values (immediate or deferred)
+calculate_life_annuity <- function(
+  mortality_table,
+  start_age,
+  payment_start_age = NULL,
+  discount_rate,
+  annual_payment = 1
+) {
+  # If no payment start age specified, annuity starts immediately
+  if (is.null(payment_start_age)) {
+    payment_start_age <- start_age
+  }
+
+  # Calculate probability of survival to payment start (1 if immediate)
+  if (payment_start_age > start_age) {
+    survival_to_payment <- calculate_survival_probability(
+      mortality_table,
+      start_age,
+      payment_start_age - start_age
+    )
+  } else {
+    survival_to_payment <- 1
+  }
+
+  # Calculate present value of annuity starting at payment_start_age
+  annuity_value <- 0
+  current_age <- payment_start_age
+
+  while (
+    current_age <= max(mortality_table$age) &&
+      current_age < payment_start_age + 50
+  ) {
+    # Limit to reasonable age
+
+    # Survival probability from payment start to current age
+    if (current_age == payment_start_age) {
+      surv_from_payment_start <- 1
+    } else {
+      surv_from_payment_start <- calculate_survival_probability(
+        mortality_table,
+        payment_start_age,
+        current_age - payment_start_age
+      )
+    }
+
+    if (surv_from_payment_start < 0.001) {
+      break
+    } # Negligible probability
+
+    # Present value of payment at current age (from original start age)
+    years_from_start <- current_age - start_age
+    pv_payment <- annual_payment *
+      surv_from_payment_start *
+      (1 + discount_rate)^(-years_from_start)
+
+    annuity_value <- annuity_value + pv_payment
+    current_age <- current_age + 1
+  }
+
+  return(annuity_value * survival_to_payment)
+}
+
+# Wrapper function for deferred annuity (backwards compatibility)
+calculate_deferred_annuity <- function(
+  mortality_table,
+  start_age,
+  payment_age,
+  discount_rate,
+  annual_payment = 1
+) {
+  return(calculate_life_annuity(
+    mortality_table,
+    start_age,
+    payment_age,
+    discount_rate,
+    annual_payment
+  ))
+}
+
+# Examples
+survival_30_to_65 <- calculate_survival_probability(mortality_table, 30, 35)
+cat("Probability of surviving from age 30 to 65:", survival_30_to_65, "\n")
+
+annuity_30_defer_to_65 <- calculate_life_annuity(mortality_table, 30, 65, 0.07)
+cat(
+  "Present value of $1 annuity deferred from age 30 to 65:",
+  annuity_30_defer_to_65,
+  "\n"
+)
+```
+
+### Multiple Decrement Tables
+
+```{r}
+#| label: multiple-decrements
+# Create a service table with multiple decrements
+create_service_table <- function(
+  mortality_table,
+  withdrawal_rates = NULL,
+  disability_rates = NULL
+) {
+  ages <- mortality_table$age
+  n_ages <- length(ages)
+
+  # Default withdrawal rates (higher at younger ages)
+  if (is.null(withdrawal_rates)) {
+    withdrawal_rates <- pmax(0.15 * exp(-0.1 * (ages - 20)), 0.01)
+    withdrawal_rates[ages >= 65] <- 0 # No withdrawal after retirement
+  }
+
+  # Default disability rates (increasing with age)
+  if (is.null(disability_rates)) {
+    disability_rates <- pmin(0.001 * 1.05^(ages - 20), 0.02)
+    disability_rates[ages >= 65] <- 0 # No disability after retirement
+  }
+
+  service_table <- data.frame(
+    age = ages,
+    q_x_death = mortality_table$q_x,
+    q_x_withdrawal = withdrawal_rates,
+    q_x_disability = disability_rates
+  )
+
+  # Calculate composite survival probability
+  service_table$q_x_total <- with(
+    service_table,
+    q_x_death + q_x_withdrawal + q_x_disability
+  )
+  service_table$q_x_total <- pmin(service_table$q_x_total, 0.95) # Cap at 95%
+  service_table$p_x_active <- 1 - service_table$q_x_total
+
+  # Calculate active life table
+  service_table$l_x_active <- numeric(n_ages)
+  service_table$l_x_active[1] <- 100000
+
+  for (i in 2:n_ages) {
+    service_table$l_x_active[i] <- service_table$l_x_active[i - 1] *
+      service_table$p_x_active[i - 1]
+  }
+
+  return(service_table)
+}
+
+# Create service table
+service_table <- create_service_table(mortality_table)
+
+# Display sample
+head(service_table[service_table$age %in% 25:35, ], 10)
+```
+
 # Financial Economics Approach
 
 ## Augmented Balance Sheet
@@ -461,9 +678,394 @@ Where PVFNC = Present Value of Future Normal Costs
    Actuarial_Gain = Expected_Liability - Actual_Liability
    ```
 
+# Validation Examples
+
+## Fundamental Equation Validation
+
+This section demonstrates the fundamental actuarial equation: **PVFB = AL + NC + PVFNC** using numerical examples.
+
+### Single Participant Validation
+
+```{r}
+#| label: single-participant-validation
+# Validate fundamental equation for a single participant
+validate_single_participant <- function(
+  entry_age,
+  current_age,
+  retirement_age,
+  entry_salary,
+  benefit_rate,
+  discount_rate,
+  salary_growth_rate,
+  mortality_table,
+  service_table
+) {
+  current_service <- current_age - entry_age
+  total_service_at_retirement <- retirement_age - entry_age
+
+  # Project salary to retirement
+  salary_at_retirement <- entry_salary *
+    (1 + salary_growth_rate)^(retirement_age - entry_age)
+
+  # Calculate projected annual benefit at retirement
+  projected_annual_benefit <- total_service_at_retirement *
+    salary_at_retirement *
+    benefit_rate
+
+  # 1. Calculate PVFB (Present Value of Future Benefits)
+  survival_to_retirement <- calculate_survival_probability(
+    service_table,
+    current_age,
+    retirement_age - current_age
+  )
+  # Calculate immediate life annuity at retirement age
+  annuity_at_retirement <- calculate_life_annuity(
+    mortality_table,
+    retirement_age,
+    retirement_age,
+    discount_rate
+  )
+
+  pvfb <- projected_annual_benefit *
+    survival_to_retirement *
+    annuity_at_retirement *
+    (1 + discount_rate)^(-(retirement_age - current_age))
+
+  # 2. Calculate Actuarial Liability (AL) - Unit Credit Method
+  # Benefit accrued to date
+  current_salary <- entry_salary *
+    (1 + salary_growth_rate)^(current_age - entry_age)
+  accrued_annual_benefit <- current_service *
+    salary_at_retirement *
+    benefit_rate
+
+  al <- accrued_annual_benefit *
+    survival_to_retirement *
+    annuity_at_retirement *
+    (1 + discount_rate)^(-(retirement_age - current_age))
+
+  # 3. Calculate Normal Cost (NC)
+  # Benefit accruing in current year
+  annual_benefit_accrual <- 1 * salary_at_retirement * benefit_rate
+
+  nc <- annual_benefit_accrual *
+    survival_to_retirement *
+    annuity_at_retirement *
+    (1 + discount_rate)^(-(retirement_age - current_age))
+
+  # 4. Calculate PVFNC (Present Value of Future Normal Costs)
+  remaining_years <- retirement_age - current_age - 1
+  if (remaining_years > 0) {
+    pvfnc <- nc * remaining_years # Simplified - assumes level normal costs
+  } else {
+    pvfnc <- 0
+  }
+
+  # Validation
+  fundamental_equation_lhs <- pvfb
+  fundamental_equation_rhs <- al + nc + pvfnc
+  difference <- abs(fundamental_equation_lhs - fundamental_equation_rhs)
+
+  results <- list(
+    participant = paste(
+      "Age",
+      current_age,
+      "with",
+      current_service,
+      "years service"
+    ),
+    pvfb = pvfb,
+    al = al,
+    nc = nc,
+    pvfnc = pvfnc,
+    equation_lhs = fundamental_equation_lhs,
+    equation_rhs = fundamental_equation_rhs,
+    difference = difference,
+    relative_error = difference / pvfb,
+    validates = difference < 0.01 * pvfb # Within 1%
+  )
+
+  return(results)
+}
+
+# Run validation for a sample participant
+validation_result <- validate_single_participant(
+  entry_age = 25,
+  current_age = 35,
+  retirement_age = 65,
+  entry_salary = 50000,
+  benefit_rate = 0.015, # 1.5% per year
+  discount_rate = 0.07,
+  salary_growth_rate = 0.04,
+  mortality_table = mortality_table,
+  service_table = service_table
+)
+
+# Display results
+cat("=== FUNDAMENTAL EQUATION VALIDATION ===\n")
+cat("Participant:", validation_result$participant, "\n\n")
+cat("PVFB (Left side):", round(validation_result$pvfb, 2), "\n")
+cat(
+  "AL + NC + PVFNC (Right side):",
+  round(validation_result$equation_rhs, 2),
+  "\n"
+)
+cat("  - AL:", round(validation_result$al, 2), "\n")
+cat("  - NC:", round(validation_result$nc, 2), "\n")
+cat("  - PVFNC:", round(validation_result$pvfnc, 2), "\n\n")
+cat("Difference:", round(validation_result$difference, 2), "\n")
+cat("Relative Error:", round(validation_result$relative_error * 100, 3), "%\n")
+cat(
+  "Validation Result:",
+  ifelse(validation_result$validates, "PASS", "FAIL"),
+  "\n"
+)
+```
+
+### Plan-Level Validation
+
+```{r}
+#| label: plan-level-validation
+# Validate fundamental equation for entire plan
+validate_plan_level <- function(
+  participants_df,
+  mortality_table,
+  service_table,
+  discount_rate = 0.07,
+  benefit_rate = 0.015
+) {
+  total_pvfb <- 0
+  total_al <- 0
+  total_nc <- 0
+  total_pvfnc <- 0
+
+  for (i in 1:nrow(participants_df)) {
+    p <- participants_df[i, ]
+
+    # Calculate individual components
+    individual_validation <- validate_single_participant(
+      entry_age = p$entry_age,
+      current_age = p$current_age,
+      retirement_age = 65, # Assume common retirement age
+      entry_salary = p$entry_salary,
+      benefit_rate = benefit_rate,
+      discount_rate = discount_rate,
+      salary_growth_rate = 0.04, # Assume 4% salary growth
+      mortality_table = mortality_table,
+      service_table = service_table
+    )
+
+    # Accumulate totals
+    total_pvfb <- total_pvfb + individual_validation$pvfb
+    total_al <- total_al + individual_validation$al
+    total_nc <- total_nc + individual_validation$nc
+    total_pvfnc <- total_pvfnc + individual_validation$pvfnc
+  }
+
+  # Plan-level validation
+  equation_rhs <- total_al + total_nc + total_pvfnc
+  difference <- abs(total_pvfb - equation_rhs)
+  relative_error <- difference / total_pvfb
+
+  results <- list(
+    total_participants = nrow(participants_df),
+    total_pvfb = total_pvfb,
+    total_al = total_al,
+    total_nc = total_nc,
+    total_pvfnc = total_pvfnc,
+    equation_lhs = total_pvfb,
+    equation_rhs = equation_rhs,
+    difference = difference,
+    relative_error = relative_error,
+    validates = difference < 0.01 * total_pvfb
+  )
+
+  return(results)
+}
+
+# Create sample plan data
+sample_participants <- data.frame(
+  id = 1:5,
+  entry_age = c(25, 30, 22, 28, 35),
+  current_age = c(35, 45, 32, 38, 50),
+  entry_salary = c(50000, 60000, 45000, 55000, 70000)
+)
+
+# Run plan-level validation
+plan_validation <- validate_plan_level(
+  sample_participants,
+  mortality_table,
+  service_table
+)
+
+cat("\n=== PLAN-LEVEL VALIDATION ===\n")
+cat("Total Participants:", plan_validation$total_participants, "\n\n")
+cat("PVFB (Left side):", round(plan_validation$total_pvfb, 2), "\n")
+cat(
+  "AL + NC + PVFNC (Right side):",
+  round(plan_validation$equation_rhs, 2),
+  "\n"
+)
+cat("  - Total AL:", round(plan_validation$total_al, 2), "\n")
+cat("  - Total NC:", round(plan_validation$total_nc, 2), "\n")
+cat("  - Total PVFNC:", round(plan_validation$total_pvfnc, 2), "\n\n")
+cat("Difference:", round(plan_validation$difference, 2), "\n")
+cat("Relative Error:", round(plan_validation$relative_error * 100, 3), "%\n")
+cat(
+  "Validation Result:",
+  ifelse(plan_validation$validates, "PASS", "FAIL"),
+  "\n"
+)
+```
+
+## Cost Method Consistency Validation
+
+```{r}
+#| label: cost-method-validation
+# Validate that different cost methods produce consistent total costs
+validate_cost_methods <- function(participant, mortality_table, service_table) {
+  # Unit Credit Method
+  uc_results <- validate_single_participant(
+    entry_age = participant$entry_age,
+    current_age = participant$current_age,
+    retirement_age = 65,
+    entry_salary = participant$entry_salary,
+    benefit_rate = 0.015,
+    discount_rate = 0.07,
+    salary_growth_rate = 0.04,
+    mortality_table = mortality_table,
+    service_table = service_table
+  )
+
+  # Entry Age Normal Method (simplified)
+  # Spread the PVFB evenly over the career
+  career_length <- 65 - participant$entry_age
+  years_elapsed <- participant$current_age - participant$entry_age
+  years_remaining <- 65 - participant$current_age
+
+  ean_normal_cost <- uc_results$pvfb / career_length
+  ean_al <- ean_normal_cost * years_elapsed
+  ean_pvfnc <- ean_normal_cost * years_remaining
+
+  # Validate EAN fundamental equation
+  ean_equation_rhs <- ean_al + ean_normal_cost + ean_pvfnc
+  ean_difference <- abs(uc_results$pvfb - ean_equation_rhs)
+
+  cat("=== COST METHOD COMPARISON ===\n")
+  cat("Unit Credit Method:\n")
+  cat("  AL:", round(uc_results$al, 2), "  NC:", round(uc_results$nc, 2), "\n")
+  cat("Entry Age Normal Method:\n")
+  cat("  AL:", round(ean_al, 2), "  NC:", round(ean_normal_cost, 2), "\n\n")
+
+  cat("Both methods produce same PVFB:", round(uc_results$pvfb, 2), "\n")
+  cat("EAN Equation validates:", abs(ean_difference) < 0.01, "\n")
+
+  return(list(
+    uc = uc_results,
+    ean = list(al = ean_al, nc = ean_normal_cost, pvfnc = ean_pvfnc)
+  ))
+}
+
+# Test with first participant
+cost_method_validation <- validate_cost_methods(
+  sample_participants[1, ],
+  mortality_table,
+  service_table
+)
+```
+
+## Asset-Liability Reconciliation Validation
+
+```{r}
+#| label: asset-liability-reconciliation
+# Demonstrate asset and liability movements over time
+demonstrate_reconciliation <- function() {
+  # Starting position
+  beginning_assets <- 1000000
+  beginning_al <- 900000
+
+  # Annual movements
+  normal_cost <- 75000
+  interest_on_al <- beginning_al * 0.07 # 7% interest on liability
+  contributions <- 80000
+  benefit_payments <- 40000
+  asset_return_rate <- 0.08 # 8% return on assets
+
+  # Asset reconciliation
+  expected_asset_earnings <- beginning_assets * 0.07 # Expected 7% return
+  actual_asset_earnings <- beginning_assets * asset_return_rate
+  asset_gain <- actual_asset_earnings - expected_asset_earnings
+
+  ending_assets <- beginning_assets +
+    contributions +
+    actual_asset_earnings -
+    benefit_payments
+
+  # Liability reconciliation
+  ending_al <- beginning_al + normal_cost + interest_on_al - benefit_payments
+
+  # Funded status changes
+  beginning_funded_status <- beginning_assets - beginning_al
+  ending_funded_status <- ending_assets - ending_al
+  change_in_funded_status <- ending_funded_status - beginning_funded_status
+
+  cat("=== ASSET-LIABILITY RECONCILIATION ===\n\n")
+
+  cat("ASSETS:\n")
+  cat("Beginning Assets:", format(beginning_assets, big.mark = ","), "\n")
+  cat("+ Contributions:", format(contributions, big.mark = ","), "\n")
+  cat(
+    "+ Investment Return:",
+    format(actual_asset_earnings, big.mark = ","),
+    "\n"
+  )
+  cat("- Benefit Payments:", format(benefit_payments, big.mark = ","), "\n")
+  cat("= Ending Assets:", format(ending_assets, big.mark = ","), "\n\n")
+
+  cat("LIABILITIES:\n")
+  cat("Beginning AL:", format(beginning_al, big.mark = ","), "\n")
+  cat("+ Normal Cost:", format(normal_cost, big.mark = ","), "\n")
+  cat("+ Interest Cost:", format(interest_on_al, big.mark = ","), "\n")
+  cat("- Benefit Payments:", format(benefit_payments, big.mark = ","), "\n")
+  cat("= Ending AL:", format(ending_al, big.mark = ","), "\n\n")
+
+  cat("FUNDED STATUS:\n")
+  cat("Beginning:", format(beginning_funded_status, big.mark = ","), "\n")
+  cat("Ending:", format(ending_funded_status, big.mark = ","), "\n")
+  cat("Change:", format(change_in_funded_status, big.mark = ","), "\n\n")
+
+  cat("ANALYSIS:\n")
+  cat("Asset Gain/(Loss):", format(asset_gain, big.mark = ","), "\n")
+  cat(
+    "Contribution vs NC:",
+    format(contributions - normal_cost, big.mark = ","),
+    "\n"
+  )
+
+  return(list(
+    ending_assets = ending_assets,
+    ending_al = ending_al,
+    funded_status_change = change_in_funded_status,
+    asset_gain = asset_gain
+  ))
+}
+
+reconciliation_example <- demonstrate_reconciliation()
+```
+
 # Conclusion
 
 This reference guide provides the essential mathematical foundation for building pension simulation models. All formulas are implementable in R or Python environments and designed for integration with Claude Code for enhanced actuarial modeling capabilities.
+
+The guide synthesizes established actuarial principles [@winklevoss_1993; @bowers_1997; @anderson2006] with modern financial economics approaches [@aaa_soa_2006] to provide a comprehensive computational framework for pension mathematics.
+
+Key contributions include:
+
+- **Comprehensive formula library** with both mathematical and computational representations
+- **Practical mortality table implementation** with multiple decrement modeling
+- **Validation framework** demonstrating fundamental actuarial relationships
+- **Working code examples** in R suitable for pension simulation projects
+- **Integration guidance** for Claude Code and modern development workflows
 
 The guide will be updated as new concepts and methods are incorporated into the pension simulation framework.
 
