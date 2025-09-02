@@ -34,6 +34,7 @@ The present value of $1 due in n years [@bowers_1997]:
 v^n = 1 / (1 + i)^n
 ```
 Where:
+
 - `v` = discount factor = 1/(1+i)
 - `i` = interest rate
 - `n` = number of years
@@ -62,6 +63,7 @@ Future salary projection:
 S_x = S_y * (SS_x / SS_y) * [(1 + I)(1 + P)]^(x-y)
 ```
 Where:
+
 - `S_x` = salary at age x
 - `S_y` = entry age salary
 - `SS_x` = merit salary scale at age x
@@ -195,6 +197,7 @@ Like Unit Credit but incorporates expected future salary increases.
 Projected_Annual_Benefit = k * (years_of_service) * (1/n) * Σ(final_n_years_salary)
 ```
 Where:
+
 - `k` = benefit multiplier (e.g., 0.015 for 1.5%)
 - `n` = averaging period
 
