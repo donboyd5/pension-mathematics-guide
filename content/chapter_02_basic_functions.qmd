@@ -1,0 +1,74 @@
+# Basic Actuarial Functions
+
+## Interest Functions
+
+The present value of $1 due in n years [@bowers_1997]:
+```
+v^n = 1 / (1 + i)^n
+```
+Where:
+
+- `v` = discount factor = 1/(1+i)
+- `i` = interest rate
+- `n` = number of years
+
+```{r}
+#| label: present-value-function
+# Present value function in R
+present_value <- function(future_value, interest_rate, years) {
+  return(future_value / (1 + interest_rate)^years)
+}
+
+# Example calculation
+pv_example <- present_value(1000, 0.05, 10)
+cat("Present value of $1000 due in 10 years at 5%:", pv_example)
+```
+
+## Survival Functions
+Probability of survival from age x to age x+t:
+```
+t_p_x = probability of surviving t years from age x
+```
+
+## Salary Functions
+Future salary projection:
+```
+S_x = S_y * (SS_x / SS_y) * [(1 + I)(1 + P)]^(x-y)
+```
+Where:
+
+- `S_x` = salary at age x
+- `S_y` = entry age salary
+- `SS_x` = merit salary scale at age x
+- `I` = inflation rate
+- `P` = productivity rate
+
+```{r}
+#| label: salary-projection
+# Salary projection function
+project_salary <- function(
+  entry_salary,
+  entry_age,
+  current_age,
+  merit_scale_current,
+  merit_scale_entry,
+  inflation_rate,
+  productivity_rate
+) {
+  years_elapsed <- current_age - entry_age
+  merit_factor <- merit_scale_current / merit_scale_entry
+  economic_factor <- (1 + inflation_rate + productivity_rate)^years_elapsed
+
+  return(entry_salary * merit_factor * economic_factor)
+}
+
+# Example
+salary_example <- project_salary(50000, 25, 35, 1.2, 1.0, 0.03, 0.01)
+cat("Projected salary:", salary_example)
+```
+
+## Annuity Functions
+Present value of life annuity:
+```
+a_x = Σ(t=0 to ∞) t_p_x * v^t
+```

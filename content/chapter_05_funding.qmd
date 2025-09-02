@@ -1,0 +1,71 @@
+# Funding Principles
+
+## Basic Funding Equation
+From fundamental actuarial principles [@aaa_2004]:
+```
+Required_Contribution = Normal_Cost + Amortization_of_Unfunded_Liability
+```
+
+## Unfunded Actuarial Liability (UAL)
+```
+UAL = Actuarial_Liability - Actuarial_Value_of_Assets
+```
+
+## Funded Ratio
+```
+Funded_Ratio = Market_Value_of_Assets / Actuarial_Liability
+```
+
+```{r}
+#| label: funding-calculations
+# Funding calculations
+calculate_ual <- function(actuarial_liability, asset_value) {
+  return(actuarial_liability - asset_value)
+}
+
+calculate_funded_ratio <- function(asset_value, actuarial_liability) {
+  return(asset_value / actuarial_liability)
+}
+
+calculate_required_contribution <- function(
+  normal_cost,
+  ual,
+  amortization_period,
+  discount_rate
+) {
+  if (ual <= 0) {
+    return(normal_cost)
+  }
+
+  # Calculate amortization payment
+  if (discount_rate == 0) {
+    amortization_payment <- ual / amortization_period
+  } else {
+    amortization_factor <- discount_rate /
+      (1 - (1 + discount_rate)^(-amortization_period))
+    amortization_payment <- ual * amortization_factor
+  }
+
+  return(normal_cost + amortization_payment)
+}
+
+# Example calculations
+example_ual <- calculate_ual(1000000, 800000)
+example_funded_ratio <- calculate_funded_ratio(800000, 1000000)
+example_contribution <- calculate_required_contribution(
+  50000,
+  example_ual,
+  15,
+  0.07
+)
+
+cat("UAL:", example_ual, "\n")
+cat("Funded Ratio:", example_funded_ratio, "\n")
+cat("Required Contribution:", example_contribution, "\n")
+```
+
+## Amortization Payments
+```
+Annual_Amortization = UAL * [i / (1 - (1+i)^(-n))]
+```
+Where n is the amortization period.

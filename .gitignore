@@ -25,5 +25,6 @@ claude/
 *.html
 *.log
 *.tex
+*.typ
 **/*.quarto_ipynb
 

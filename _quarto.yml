@@ -1,9 +1,13 @@
+title: "Pension Mathematics Reference Guide"
+subtitle: "For Claude Code Integration and Simulation Modeling"
+author: "Don Boyd (with Claude assistance)"
+date: today
+date-format: long
+
 project:
   type: default
 
 format:
-  pdf:
-      output-file: "pension-mathematics-guide"
   typst:
     toc: true
     section-numbering: 1.1.a
@@ -12,6 +16,7 @@ format:
     margin:
       x: 1in
       y: 1in
+    output-file: "pension-math-reference"
 
 execute:
   cache: false

@@ -1,0 +1,23 @@
+# Financial Economics Approach
+
+## Augmented Balance Sheet
+Following the framework established by the financial economics literature [@aaa_soa_2006], pension plans are viewed as corporate assets and liabilities:
+
+**Corporate Balance Sheet Integration:**
+```
+Total_Corporate_Assets = Operating_Assets + Net_Pension_Assets
+Total_Corporate_Liabilities = Operating_Liabilities + Net_Pension_Liabilities
+```
+
+**Tax Adjustments:**
+```
+Net_Pension_Assets = Gross_Pension_Assets * (1 - Corporate_Tax_Rate)
+Net_Pension_Liabilities = Gross_Pension_Liabilities * (1 - Corporate_Tax_Rate)
+```
+
+## Market-Based Liability Valuation
+```
+Market_Liability = Σ benefit_cash_flows * market_discount_factors
+```
+
+Where market discount factors reflect the credit risk and timing of benefit payments.

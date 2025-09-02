@@ -1,0 +1,31 @@
+# Actuarial Assumptions
+
+## Economic Assumptions
+
+### Discount Rate Selection
+- **Funding:** Expected return on plan assets
+- **Accounting:** High-quality corporate bond yields
+- **Market Valuation:** Risk-adjusted rates matching benefit cash flows
+
+### Salary Scale
+```
+Salary_Growth_Rate = Inflation + Productivity + Merit_Increases
+```
+
+## Demographic Assumptions
+
+### Mortality Rates
+```
+q_x = probability of death between age x and x+1
+p_x = 1 - q_x = probability of survival
+```
+
+### Withdrawal/Termination Rates
+```
+w_x = probability of terminating employment at age x
+```
+
+### Retirement Rates
+```
+r_x = probability of retiring at age x
+```

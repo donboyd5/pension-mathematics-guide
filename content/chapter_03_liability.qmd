@@ -1,0 +1,73 @@
+# Pension Liability Calculations
+
+## Present Value of Future Benefits (PVFB)
+The actuarial present value of all expected future benefit payments:
+```
+PVFB = Σ expected_future_benefits * discount_factors * survival_probabilities
+```
+
+## Three Key Liability Measures
+
+### 1. Market Liability
+Market value using risk-adjusted discount rates matching traded securities with similar cash flow patterns.
+
+### 2. Solvency Liability  
+Present value using risk-free rates (e.g., Treasury bonds):
+```
+Solvency_Liability = Σ benefit_payments * treasury_discount_factors
+```
+
+### 3. Budget Liability (Actuarial Liability - AL)
+Traditional actuarial accrued liability for funding purposes [@aaa_2004]:
+```
+AL = portion of PVFB attributed to past service
+```
+
+## Benefit Obligation Measures
+
+### Projected Benefit Obligation (PBO)
+Present value of benefits earned to date based on projected future salaries:
+```
+PBO_end = PBO_begin + Service_Cost + Interest_Cost ± Actuarial_Gains_Losses + Plan_Amendments - Benefits_Paid
+```
+
+```{r}
+#| label: pbo-calculation
+# PBO calculation function
+calculate_pbo_end <- function(
+  pbo_begin,
+  service_cost,
+  interest_cost,
+  actuarial_gains_losses,
+  plan_amendments,
+  benefits_paid
+) {
+  pbo_end <- pbo_begin +
+    service_cost +
+    interest_cost +
+    actuarial_gains_losses +
+    plan_amendments -
+    benefits_paid
+  return(pbo_end)
+}
+```
+
+### Service Cost
+Present value of benefits earned in current year:
+```
+Service_Cost = present_value_of_current_year_benefit_accrual
+```
+
+### Interest Cost
+Growth in obligation due to passage of time:
+```
+Interest_Cost = PBO_beginning * discount_rate
+```
+
+```{r}
+#| label: interest-cost
+# Interest cost calculation
+calculate_interest_cost <- function(pbo_beginning, discount_rate) {
+  return(pbo_beginning * discount_rate)
+}
+```

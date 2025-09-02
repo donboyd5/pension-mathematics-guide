@@ -1,13 +1,38 @@
 ---
-title: "Pension Mathematics Reference Guide"
-subtitle: "For Claude Code Integration and Simulation Modeling"
-author: "Don Boyd (with Claude assistance)"
-date: today
-date-format: long
+
 ---
 
 ```{=typst}
 #pagebreak()
 ```
 
-{{< include content/main-content.qmd >}}
+{{< include content/chapter_01_introduction.qmd >}}
+
+{{< include content/chapter_02_basic_functions.qmd >}}
+
+{{< include content/chapter_03_liability.qmd >}}
+
+{{< include content/chapter_04_cost_methods.qmd >}}
+
+{{< include content/chapter_05_funding.qmd >}}
+
+{{< include content/chapter_06_assumptions.qmd >}}
+
+{{< include content/chapter_07_mortality.qmd >}}
+
+{{< include content/chapter_08_financial_economics.qmd >}}
+
+{{< include content/chapter_09_implementation.qmd >}}
+
+{{< include content/chapter_10_validation.qmd >}}
+
+{{< include content/chapter_11_conclusion.qmd >}}
+
+
+```{=typst}
+#pagebreak()
+```
+
+```{=typst}
+#bibliography("references.bib", full: true, style: "harvard-cite-them-right")
+```

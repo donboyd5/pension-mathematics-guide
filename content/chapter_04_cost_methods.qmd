@@ -1,0 +1,44 @@
+# Cost Methods
+
+## Unit Credit Method
+Allocates costs based on benefits accrued each year under the plan formula.
+
+**Normal Cost:**
+```
+NC = present_value_of_benefit_accrued_in_current_year
+```
+
+**Actuarial Liability:**
+```
+AL = present_value_of_benefits_accrued_to_date
+```
+
+## Projected Unit Credit Method
+Like Unit Credit but incorporates expected future salary increases.
+
+**For final average pay plans:**
+```
+Projected_Annual_Benefit = k * (years_of_service) * (1/n) * Σ(final_n_years_salary)
+```
+Where:
+
+- `k` = benefit multiplier (e.g., 0.015 for 1.5%)
+- `n` = averaging period
+
+```{r}
+#| label: benefit-calculation
+# Final average pay benefit calculation
+calculate_final_average_benefit <- function(
+  years_of_service,
+  final_salaries,
+  benefit_multiplier
+) {
+  average_salary <- mean(final_salaries)
+  return(years_of_service * average_salary * benefit_multiplier)
+}
+
+# Example
+final_5_salaries <- c(80000, 82000, 84000, 86000, 88000)
+benefit_example <- calculate_final_average_benefit(30, final_5_salaries, 0.015)
+cat("Annual benefit:", benefit_example)
+```

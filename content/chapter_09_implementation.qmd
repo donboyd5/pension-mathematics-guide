@@ -1,0 +1,92 @@
+# Implementation Examples
+
+## Simple Pension Plan Class
+
+```{r}
+#| label: pension-plan-class
+# Simple pension plan simulation class using R6
+library(R6)
+
+PensionPlan <- R6Class(
+  "PensionPlan",
+  public = list(
+    participants = NULL,
+    assets = NULL,
+    assumptions = NULL,
+
+    initialize = function(initial_assets = 0, assumptions = list()) {
+      self$assets <- initial_assets
+      self$assumptions <- assumptions
+      self$participants <- data.frame()
+    },
+
+    add_participant = function(id, age, salary, service) {
+      new_participant <- data.frame(
+        id = id,
+        age = age,
+        salary = salary,
+        service = service
+      )
+      self$participants <- rbind(self$participants, new_participant)
+    },
+
+    calculate_actuarial_liability = function(discount_rate = 0.07) {
+      if (nrow(self$participants) == 0) {
+        return(0)
+      }
+
+      total_liability <- 0
+      for (i in 1:nrow(self$participants)) {
+        participant <- self$participants[i, ]
+
+        # Simple benefit calculation (1.5% of final salary per year of service)
+        projected_benefit <- participant$salary *
+          1.02^(65 - participant$age) *
+          participant$service *
+          0.015
+
+        # Present value (simplified - assumes retirement at 65)
+        years_to_retirement <- max(0, 65 - participant$age)
+        pv_benefit <- projected_benefit /
+          (1 + discount_rate)^years_to_retirement
+
+        total_liability <- total_liability + pv_benefit
+      }
+
+      return(total_liability)
+    },
+
+    annual_valuation = function() {
+      # Age participants
+      self$participants$age <- self$participants$age + 1
+      self$participants$service <- self$participants$service + 1
+
+      # Calculate liabilities
+      actuarial_liability <- self$calculate_actuarial_liability()
+
+      # Calculate funded ratio
+      funded_ratio <- if (actuarial_liability > 0) {
+        self$assets / actuarial_liability
+      } else {
+        Inf
+      }
+
+      return(list(
+        assets = self$assets,
+        liabilities = actuarial_liability,
+        funded_ratio = funded_ratio,
+        participants = nrow(self$participants)
+      ))
+    }
+  )
+)
+
+# Example usage
+plan <- PensionPlan$new(initial_assets = 1000000)
+plan$add_participant(1, 35, 50000, 10)
+plan$add_participant(2, 45, 75000, 20)
+plan$add_participant(3, 25, 40000, 5)
+
+valuation_results <- plan$annual_valuation()
+print(valuation_results)
+```

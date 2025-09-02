@@ -1,0 +1,167 @@
+# Key Relationships and Validation Checks
+
+## Fundamental Equation
+```
+PVFB = Actuarial_Liability + Normal_Cost + PVFNC
+```
+Where PVFNC = Present Value of Future Normal Costs
+
+## Consistency Checks
+1. **Asset-Liability Reconciliation:**
+   ```
+   Funded_Status = Assets - Liabilities
+   ```
+
+2. **Cost Method Validation:**
+   ```
+   Sum of all Normal Costs (present value) + Initial AL = PVFB
+   ```
+
+3. **Experience Gains/Losses:**
+   ```
+   Actuarial_Gain = Expected_Liability - Actual_Liability
+   ```
+
+# Validation Examples
+
+## Fundamental Equation Validation
+
+This section demonstrates the fundamental actuarial equation: **PVFB = AL + NC + PVFNC** using numerical examples.
+
+### Single Participant Validation
+
+```{r}
+#| label: single-participant-validation
+# Validate fundamental equation for a single participant
+validate_single_participant <- function(
+  entry_age,
+  current_age,
+  retirement_age,
+  entry_salary,
+  benefit_rate,
+  discount_rate,
+  salary_growth_rate,
+  mortality_table,
+  service_table
+) {
+  current_service <- current_age - entry_age
+  total_service_at_retirement <- retirement_age - entry_age
+
+  # Project salary to retirement
+  salary_at_retirement <- entry_salary *
+    (1 + salary_growth_rate)^(retirement_age - entry_age)
+
+  # Calculate projected annual benefit at retirement
+  projected_annual_benefit <- total_service_at_retirement *
+    salary_at_retirement *
+    benefit_rate
+
+  # 1. Calculate PVFB (Present Value of Future Benefits)
+  survival_to_retirement <- calculate_survival_probability(
+    service_table,
+    current_age,
+    retirement_age - current_age
+  )
+  # Calculate immediate life annuity at retirement age
+  annuity_at_retirement <- calculate_life_annuity(
+    mortality_table,
+    retirement_age,
+    retirement_age,
+    discount_rate
+  )
+
+  pvfb <- projected_annual_benefit *
+    survival_to_retirement *
+    annuity_at_retirement *
+    (1 + discount_rate)^(-(retirement_age - current_age))
+
+  # 2. Calculate Actuarial Liability (AL) - Unit Credit Method
+  # Benefit accrued to date
+  current_salary <- entry_salary *
+    (1 + salary_growth_rate)^(current_age - entry_age)
+  accrued_annual_benefit <- current_service *
+    salary_at_retirement *
+    benefit_rate
+
+  al <- accrued_annual_benefit *
+    survival_to_retirement *
+    annuity_at_retirement *
+    (1 + discount_rate)^(-(retirement_age - current_age))
+
+  # 3. Calculate Normal Cost (NC)
+  # Benefit accruing in current year
+  annual_benefit_accrual <- 1 * salary_at_retirement * benefit_rate
+
+  nc <- annual_benefit_accrual *
+    survival_to_retirement *
+    annuity_at_retirement *
+    (1 + discount_rate)^(-(retirement_age - current_age))
+
+  # 4. Calculate PVFNC (Present Value of Future Normal Costs)
+  remaining_years <- retirement_age - current_age - 1
+  if (remaining_years > 0) {
+    pvfnc <- nc * remaining_years # Simplified - assumes level normal costs
+  } else {
+    pvfnc <- 0
+  }
+
+  # Validation
+  fundamental_equation_lhs <- pvfb
+  fundamental_equation_rhs <- al + nc + pvfnc
+  difference <- abs(fundamental_equation_lhs - fundamental_equation_rhs)
+
+  results <- list(
+    participant = paste(
+      "Age",
+      current_age,
+      "with",
+      current_service,
+      "years service"
+    ),
+    pvfb = pvfb,
+    al = al,
+    nc = nc,
+    pvfnc = pvfnc,
+    equation_lhs = fundamental_equation_lhs,
+    equation_rhs = fundamental_equation_rhs,
+    difference = difference,
+    relative_error = difference / pvfb,
+    validates = difference < 0.01 * pvfb # Within 1%
+  )
+
+  return(results)
+}
+
+# Run validation for a sample participant
+validation_result <- validate_single_participant(
+  entry_age = 25,
+  current_age = 35,
+  retirement_age = 65,
+  entry_salary = 50000,
+  benefit_rate = 0.015, # 1.5% per year
+  discount_rate = 0.07,
+  salary_growth_rate = 0.04,
+  mortality_table = mortality_table,
+  service_table = service_table
+)
+
+# Display results
+cat("=== FUNDAMENTAL EQUATION VALIDATION ===\n")
+cat("Participant:", validation_result$participant, "\n\n")
+cat("PVFB (Left side):", round(validation_result$pvfb, 2), "\n")
+cat(
+  "AL + NC + PVFNC (Right side):",
+  round(validation_result$equation_rhs, 2),
+  "\n"
+)
+cat("  - AL:", round(validation_result$al, 2), "\n")
+cat("  - NC:", round(validation_result$nc, 2), "\n")
+cat("  - PVFNC:", round(validation_result$pvfnc, 2), "\n\n")
+cat("Difference:", round(validation_result$difference, 2), "\n")
+cat("Relative Error:", round(validation_result$relative_error * 100, 3), "%\n")
+cat(
+  "Validation Result:",
+  ifelse(validation_result$validates, "PASS", "FAIL"),
+  "\n"
+)
+```
