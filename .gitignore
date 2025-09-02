@@ -17,6 +17,8 @@ Thumbs.db
 
 # Folders to gitignore
 _book/
+_freeze/
+claude/
 
 # Output files (optional - remove if you want to track PDFs)
 *.pdf

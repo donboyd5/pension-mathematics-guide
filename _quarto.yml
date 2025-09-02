@@ -1,0 +1,18 @@
+project:
+  type: default
+
+format:
+  pdf:
+      output-file: "pension-mathematics-guide"
+  typst:
+    toc: true
+    section-numbering: 1.1.a
+    columns: 1
+    papersize: us-letter
+    margin:
+      x: 1in
+      y: 1in
+
+execute:
+  cache: false
+  freeze: auto
