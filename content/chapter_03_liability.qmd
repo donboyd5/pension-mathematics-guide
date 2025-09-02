@@ -71,3 +71,200 @@ calculate_interest_cost <- function(pbo_beginning, discount_rate) {
   return(pbo_beginning * discount_rate)
 }
 ```
+
+## Cash Balance Plan Liabilities
+
+Cash balance plans present unique liability measurement challenges as they guarantee both a minimum return on account balances and conversion to annuities at retirement.
+
+### Account Balance vs Annuity Value
+
+```{r}
+#| label: cb-helper-functions
+# Helper function for annuity calculations (simplified version)
+# Full version is in Chapter 7 - Mortality Tables
+calculate_life_annuity_simple <- function(
+  mortality_table = NULL,
+  start_age,
+  payment_age,
+  discount_rate,
+  annual_payment = 1
+) {
+  # Simplified annuity calculation
+  # Assumes constant mortality improvement
+  if (is.null(mortality_table)) {
+    # Use simplified annuity factors if no mortality table provided
+    # These are approximations for illustration
+    if (start_age >= 65) {
+      annuity_factor <- 12 - (start_age - 65) * 0.3
+    } else {
+      years_deferred <- payment_age - start_age
+      annuity_factor <- 12 / (1 + discount_rate)^years_deferred
+    }
+    return(max(annuity_factor, 1))
+  }
+  
+  # If mortality table provided but doesn't have required ages, 
+  # use simplified calculation
+  if (!start_age %in% mortality_table$age || 
+      !payment_age %in% mortality_table$age) {
+    years_deferred <- max(0, payment_age - start_age)
+    annuity_factor <- 12 / (1 + discount_rate)^years_deferred
+    return(max(annuity_factor, 1))
+  }
+  
+  # Basic implementation with mortality table
+  annuity_value <- 0
+  for (t in 0:30) {  # Limit to 30 years
+    current_age <- payment_age + t
+    if (current_age > 100) break
+    
+    # Simplified survival probability
+    survival_prob <- 0.95^t  # Approximation
+    
+    # Discount factor
+    discount_factor <- (1 + discount_rate)^(-(payment_age - start_age + t))
+    
+    # Add to annuity value
+    annuity_value <- annuity_value + 
+      annual_payment * survival_prob * discount_factor
+  }
+  
+  return(max(annuity_value, 1))
+}
+
+# Create a simple mortality table for examples
+create_simple_mortality <- function() {
+  ages <- 20:100
+  q_x <- pmin(0.001 * 1.08^(ages - 20), 0.95)
+  
+  data.frame(
+    age = ages,
+    q_x = q_x,
+    p_x = 1 - q_x
+  )
+}
+
+mortality_table_simple <- create_simple_mortality()
+```
+
+```{r}
+#| label: cb-whipsaw-calculation
+# Cash balance whipsaw calculation
+# Compares account balance to minimum annuity value
+calculate_cb_whipsaw <- function(
+  account_balance,
+  participant_age,
+  interest_credit_rate,
+  discount_rate_417e,  # IRS 417(e) rate for lump sums
+  mortality_table_417e  # IRS prescribed mortality
+) {
+  
+  # Calculate annuity equivalent of account balance
+  # using plan's interest crediting rate
+  annuity_from_balance <- account_balance / 
+    calculate_life_annuity_simple(
+      mortality_table_417e,
+      participant_age,
+      participant_age,
+      interest_credit_rate
+    )
+  
+  # Calculate lump sum value of annuity using 417(e) rates
+  lumpsum_value <- annuity_from_balance * 
+    calculate_life_annuity_simple(
+      mortality_table_417e,
+      participant_age,
+      participant_age,
+      discount_rate_417e
+    )
+  
+  # Whipsaw occurs when lump sum exceeds account balance
+  whipsaw_amount <- max(0, lumpsum_value - account_balance)
+  
+  return(list(
+    account_balance = account_balance,
+    annuity_equivalent = annuity_from_balance,
+    lumpsum_value_417e = lumpsum_value,
+    whipsaw_amount = whipsaw_amount,
+    whipsaw_exists = whipsaw_amount > 0
+  ))
+}
+
+# Example whipsaw calculation
+# Note: Using simplified mortality for demonstration
+whipsaw_example <- calculate_cb_whipsaw(
+  account_balance = 500000,
+  participant_age = 55,
+  interest_credit_rate = 0.05,
+  discount_rate_417e = 0.03,
+  mortality_table_417e = mortality_table_simple
+)
+
+cat("Cash Balance Whipsaw Analysis\n")
+cat("==============================\n")
+cat("Account Balance: $", whipsaw_example$account_balance, "\n")
+cat("Annuity Equivalent: $", 
+    round(whipsaw_example$annuity_equivalent, 2), "/year\n")
+cat("417(e) Lump Sum Value: $", 
+    round(whipsaw_example$lumpsum_value_417e, 2), "\n")
+cat("Whipsaw Amount: $", 
+    round(whipsaw_example$whipsaw_amount, 2), "\n")
+```
+
+### Market Value of Cash Balance Obligations
+
+```{r}
+#| label: cb-market-value
+# Calculate market value of cash balance obligation
+calculate_cb_market_value <- function(
+  current_balance,
+  guaranteed_rate,
+  market_rate,
+  years_to_payment
+) {
+  
+  # Future value at guaranteed rate
+  fv_guaranteed <- current_balance * (1 + guaranteed_rate)^years_to_payment
+  
+  # Present value at market rate
+  pv_market <- fv_guaranteed / (1 + market_rate)^years_to_payment
+  
+  # The market value reflects the cost of providing the guarantee
+  market_premium <- pv_market - current_balance
+  
+  return(list(
+    current_balance = current_balance,
+    guaranteed_future_value = fv_guaranteed,
+    market_present_value = pv_market,
+    guarantee_cost = market_premium,
+    guarantee_cost_pct = market_premium / current_balance * 100
+  ))
+}
+
+# Example with different rate scenarios
+scenarios <- data.frame(
+  guaranteed_rate = c(0.04, 0.04, 0.04),
+  market_rate = c(0.03, 0.04, 0.06),
+  scenario = c("Below Market", "At Market", "Above Market")
+)
+
+cat("\nMarket Value Under Different Rate Scenarios\n")
+cat("Account Balance: $100,000, 10 years to retirement\n")
+cat("================================================\n")
+
+for (i in 1:nrow(scenarios)) {
+  result <- calculate_cb_market_value(
+    current_balance = 100000,
+    guaranteed_rate = scenarios$guaranteed_rate[i],
+    market_rate = scenarios$market_rate[i],
+    years_to_payment = 10
+  )
+  
+  cat("\n", scenarios$scenario[i], ":\n")
+  cat("  Guaranteed Rate:", scenarios$guaranteed_rate[i] * 100, "%\n")
+  cat("  Market Rate:", scenarios$market_rate[i] * 100, "%\n")
+  cat("  Market Value: $", round(result$market_present_value, 2), "\n")
+  cat("  Guarantee Cost: $", round(result$guarantee_cost, 2), 
+      " (", round(result$guarantee_cost_pct, 1), "%)\n")
+}
+```

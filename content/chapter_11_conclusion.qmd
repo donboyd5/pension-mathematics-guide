@@ -1,6 +1,6 @@
 # Conclusion
 
-This reference guide provides the essential mathematical foundation for building pension simulation models. All formulas are implementable in R or Python environments and designed for integration with Claude Code for enhanced actuarial modeling capabilities.
+This reference guide provides the essential mathematical foundation for building pension simulation models. All formulas are implementable in R and designed for integration with Claude Code for enhanced actuarial modeling capabilities.
 
 The guide synthesizes established actuarial principles [@winklevoss_1993; @bowers_1997; @anderson2006] with modern financial economics approaches [@aaa_soa_2006] to provide a comprehensive computational framework for pension mathematics.
 

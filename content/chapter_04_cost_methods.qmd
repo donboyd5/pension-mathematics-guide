@@ -42,3 +42,398 @@ final_5_salaries <- c(80000, 82000, 84000, 86000, 88000)
 benefit_example <- calculate_final_average_benefit(30, final_5_salaries, 0.015)
 cat("Annual benefit:", benefit_example)
 ```
+
+## Cash Balance Plans
+
+Cash balance plans are hybrid plans that combine features of defined benefit and defined contribution plans. They maintain individual account balances while providing guaranteed returns and conversion to annuities.
+
+### Cash Balance Account Structure
+
+```{r}
+#| label: cb-helper-functions-ch4
+# Helper function for survival probability (simplified version)
+# Full version is in Chapter 7 - Mortality Tables
+calculate_survival_probability <- function(
+  mortality_table = NULL,
+  age_x,
+  years_t
+) {
+  # Simplified survival probability calculation
+  if (is.null(mortality_table)) {
+    # Use simplified survival curve if no mortality table
+    base_survival <- 0.99  # Annual survival probability at young age
+    aging_factor <- 0.995  # Rate of decline
+    annual_survival <- base_survival * aging_factor^(age_x - 30)
+    return(annual_survival^years_t)
+  }
+  
+  # Check if ages are in the table
+  if (!age_x %in% mortality_table$age || 
+      !(age_x + years_t) %in% mortality_table$age) {
+    # Fallback to simplified calculation
+    annual_survival <- 0.99 * 0.995^(age_x - 30)
+    return(max(0.01, annual_survival^years_t))
+  }
+  
+  # Calculate cumulative survival
+  survival <- 1
+  for (t in 0:(years_t - 1)) {
+    current_age <- age_x + t
+    if (current_age %in% mortality_table$age) {
+      idx <- which(mortality_table$age == current_age)
+      survival <- survival * mortality_table$p_x[idx]
+    } else {
+      survival <- survival * 0.98  # Default if age not found
+    }
+  }
+  
+  return(survival)
+}
+```
+
+```{r}
+#| label: cash-balance-structure
+# Cash balance account tracking
+create_cash_balance_account <- function(
+  participant_id,
+  entry_age,
+  entry_salary,
+  pay_credit_rate = 0.05,  # 5% of salary
+  interest_credit_rate = 0.04  # 4% guaranteed return
+) {
+  account <- list(
+    participant_id = participant_id,
+    entry_age = entry_age,
+    current_age = entry_age,
+    entry_salary = entry_salary,
+    current_salary = entry_salary,
+    pay_credit_rate = pay_credit_rate,
+    interest_credit_rate = interest_credit_rate,
+    account_balance = 0,
+    transactions = data.frame(
+      year = numeric(),
+      age = numeric(),
+      salary = numeric(),
+      pay_credit = numeric(),
+      interest_credit = numeric(),
+      ending_balance = numeric()
+    )
+  )
+  
+  class(account) <- "CashBalanceAccount"
+  return(account)
+}
+
+# Annual update function for cash balance account
+update_cash_balance_account <- function(
+  account,
+  new_salary = NULL,
+  salary_increase_rate = 0.03
+) {
+  # Update age
+  account$current_age <- account$current_age + 1
+  
+  # Update salary
+  if (is.null(new_salary)) {
+    account$current_salary <- account$current_salary * (1 + salary_increase_rate)
+  } else {
+    account$current_salary <- new_salary
+  }
+  
+  # Calculate credits
+  pay_credit <- account$current_salary * account$pay_credit_rate
+  interest_credit <- account$account_balance * account$interest_credit_rate
+  
+  # Update balance
+  new_balance <- account$account_balance + pay_credit + interest_credit
+  
+  # Record transaction
+  new_transaction <- data.frame(
+    year = nrow(account$transactions) + 1,
+    age = account$current_age,
+    salary = account$current_salary,
+    pay_credit = pay_credit,
+    interest_credit = interest_credit,
+    ending_balance = new_balance
+  )
+  
+  account$transactions <- rbind(account$transactions, new_transaction)
+  account$account_balance <- new_balance
+  
+  return(account)
+}
+
+# Example: Create and project cash balance account
+cb_account <- create_cash_balance_account(
+  participant_id = 1,
+  entry_age = 30,
+  entry_salary = 50000,
+  pay_credit_rate = 0.05,
+  interest_credit_rate = 0.04
+)
+
+# Project account for 10 years
+for (i in 1:10) {
+  cb_account <- update_cash_balance_account(cb_account)
+}
+
+cat("Cash Balance Account After 10 Years\n")
+cat("===================================\n")
+print(tail(cb_account$transactions, 5))
+cat("\nFinal Account Balance: $", 
+    round(cb_account$account_balance, 2), "\n")
+```
+
+### Cash Balance Liability Calculations
+
+```{r}
+#| label: cash-balance-liability
+# Calculate present value of cash balance benefit
+calculate_cb_liability <- function(
+  current_balance,
+  current_age,
+  retirement_age,
+  pay_credit_rate,
+  interest_credit_rate,
+  discount_rate,
+  salary,
+  salary_growth_rate,
+  mortality_table = NULL,
+  conversion_factor = 12  # Annuity conversion factor
+) {
+  
+  years_to_retirement <- retirement_age - current_age
+  
+  if (years_to_retirement <= 0) {
+    # Already retired - return current balance
+    return(current_balance)
+  }
+  
+  # Project account balance to retirement
+  projected_balance <- current_balance
+  projected_salary <- salary
+  
+  for (year in 1:years_to_retirement) {
+    # Apply interest credit
+    projected_balance <- projected_balance * (1 + interest_credit_rate)
+    
+    # Apply pay credit
+    projected_salary <- projected_salary * (1 + salary_growth_rate)
+    pay_credit <- projected_salary * pay_credit_rate
+    projected_balance <- projected_balance + pay_credit
+  }
+  
+  # Discount back to present value
+  pv_projected_balance <- projected_balance / 
+    (1 + discount_rate)^years_to_retirement
+  
+  # Apply mortality discount if table provided
+  if (!is.null(mortality_table)) {
+    survival_prob <- calculate_survival_probability(
+      mortality_table, 
+      current_age, 
+      years_to_retirement
+    )
+    pv_projected_balance <- pv_projected_balance * survival_prob
+  }
+  
+  return(pv_projected_balance)
+}
+
+# Calculate normal cost for cash balance plan
+calculate_cb_normal_cost <- function(
+  salary,
+  pay_credit_rate,
+  interest_credit_rate,
+  discount_rate,
+  current_age,
+  retirement_age,
+  mortality_table = NULL
+) {
+  
+  # Pay credit for current year
+  pay_credit <- salary * pay_credit_rate
+  
+  # Years to retirement
+  years_to_retirement <- retirement_age - current_age
+  
+  if (years_to_retirement <= 0) {
+    return(pay_credit)  # Immediate payout
+  }
+  
+  # Future value of this year's pay credit at retirement
+  fv_pay_credit <- pay_credit * 
+    (1 + interest_credit_rate)^years_to_retirement
+  
+  # Present value using valuation discount rate
+  pv_pay_credit <- fv_pay_credit / 
+    (1 + discount_rate)^years_to_retirement
+  
+  # Apply mortality if provided
+  if (!is.null(mortality_table)) {
+    survival_prob <- calculate_survival_probability(
+      mortality_table, 
+      current_age, 
+      years_to_retirement
+    )
+    pv_pay_credit <- pv_pay_credit * survival_prob
+  }
+  
+  return(pv_pay_credit)
+}
+
+# Example calculations
+cb_liability <- calculate_cb_liability(
+  current_balance = 100000,
+  current_age = 45,
+  retirement_age = 65,
+  pay_credit_rate = 0.05,
+  interest_credit_rate = 0.04,
+  discount_rate = 0.06,
+  salary = 80000,
+  salary_growth_rate = 0.03
+)
+
+cb_normal_cost <- calculate_cb_normal_cost(
+  salary = 80000,
+  pay_credit_rate = 0.05,
+  interest_credit_rate = 0.04,
+  discount_rate = 0.06,
+  current_age = 45,
+  retirement_age = 65
+)
+
+cat("\nCash Balance Plan Valuation\n")
+cat("============================\n")
+cat("Current Balance: $100,000\n")
+cat("Current Age: 45\n")
+cat("PV of Projected Benefit (Liability): $", 
+    round(cb_liability, 2), "\n")
+cat("Normal Cost: $", round(cb_normal_cost, 2), "\n")
+```
+
+### Cash Balance vs Traditional DB Comparison
+
+```{r}
+#| label: cb-db-comparison
+# Compare cash balance to traditional DB for same participant
+compare_cb_to_db <- function(
+  entry_age = 30,
+  current_age = 45,
+  retirement_age = 65,
+  entry_salary = 50000,
+  current_salary = 80000,
+  salary_growth_rate = 0.03,
+  
+  # Cash Balance parameters
+  cb_pay_credit_rate = 0.05,
+  cb_interest_credit_rate = 0.04,
+  
+  # Traditional DB parameters  
+  db_benefit_multiplier = 0.015,
+  
+  # Valuation parameters
+  discount_rate = 0.06
+) {
+  
+  # Calculate years of service
+  current_service <- current_age - entry_age
+  total_service <- retirement_age - entry_age
+  
+  # Project final salary
+  years_to_retirement <- retirement_age - current_age
+  final_salary <- current_salary * 
+    (1 + salary_growth_rate)^years_to_retirement
+  
+  # Traditional DB benefit and liability
+  db_annual_benefit <- total_service * final_salary * db_benefit_multiplier
+  db_accrued_benefit <- current_service * final_salary * db_benefit_multiplier
+  
+  # Assume annuity factor of 12 for simplicity
+  annuity_factor <- 12
+  db_liability <- db_accrued_benefit * annuity_factor / 
+    (1 + discount_rate)^years_to_retirement
+  
+  # Cash Balance projection
+  # Simulate account growth from entry to current
+  cb_balance <- 0
+  sim_salary <- entry_salary
+  
+  for (age in entry_age:(current_age - 1)) {
+    # Pay credit
+    pay_credit <- sim_salary * cb_pay_credit_rate
+    # Interest credit
+    interest_credit <- cb_balance * cb_interest_credit_rate
+    # Update balance
+    cb_balance <- cb_balance + pay_credit + interest_credit
+    # Update salary
+    sim_salary <- sim_salary * (1 + salary_growth_rate)
+  }
+  
+  # Calculate CB liability
+  cb_liability <- calculate_cb_liability(
+    current_balance = cb_balance,
+    current_age = current_age,
+    retirement_age = retirement_age,
+    pay_credit_rate = cb_pay_credit_rate,
+    interest_credit_rate = cb_interest_credit_rate,
+    discount_rate = discount_rate,
+    salary = current_salary,
+    salary_growth_rate = salary_growth_rate
+  )
+  
+  # Project CB balance to retirement for benefit comparison
+  projected_cb_balance <- cb_balance
+  projected_salary <- current_salary
+  
+  for (year in 1:years_to_retirement) {
+    projected_cb_balance <- projected_cb_balance * 
+      (1 + cb_interest_credit_rate)
+    projected_salary <- projected_salary * (1 + salary_growth_rate)
+    projected_cb_balance <- projected_cb_balance + 
+      projected_salary * cb_pay_credit_rate
+  }
+  
+  cb_annual_benefit <- projected_cb_balance / annuity_factor
+  
+  # Create comparison
+  comparison <- data.frame(
+    Plan_Type = c("Traditional DB", "Cash Balance"),
+    Current_Liability = c(db_liability, cb_liability),
+    Projected_Annual_Benefit = c(db_annual_benefit, cb_annual_benefit),
+    Lump_Sum_at_Retirement = c(
+      db_annual_benefit * annuity_factor,
+      projected_cb_balance
+    )
+  )
+  
+  return(list(
+    comparison = comparison,
+    cb_current_balance = cb_balance,
+    details = list(
+      entry_age = entry_age,
+      current_age = current_age,
+      retirement_age = retirement_age,
+      current_salary = current_salary,
+      years_of_service = current_service
+    )
+  ))
+}
+
+# Run comparison
+comparison_results <- compare_cb_to_db()
+
+cat("\nPlan Design Comparison\n")
+cat("======================\n")
+cat("Participant: Age", comparison_results$details$current_age, 
+    "with", comparison_results$details$years_of_service, 
+    "years of service\n")
+cat("Current Salary: $", comparison_results$details$current_salary, "\n")
+cat("Current CB Balance: $", 
+    round(comparison_results$cb_current_balance, 2), "\n\n")
+
+# Round only numeric columns for display
+comparison_display <- comparison_results$comparison
+comparison_display[, -1] <- round(comparison_display[, -1], 2)
+print(comparison_display)
+```

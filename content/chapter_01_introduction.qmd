@@ -1,6 +1,6 @@
 # Introduction
 
-This comprehensive reference guide provides essential pension mathematics formulas, concepts, and implementation examples designed for integration with Claude Code and actuarial simulation models. The guide covers traditional actuarial methods [@winklevoss_1993], modern financial economics approaches [@aaa_soa_2006], and practical implementation in R and Python environments.
+This comprehensive reference guide provides essential pension mathematics formulas, concepts, and implementation examples designed for integration with Claude Code and actuarial simulation models. The guide covers traditional actuarial methods [@winklevoss_1993], modern financial economics approaches [@aaa_soa_2006], and practical implementation in R.
 
 ## How to Use This Guide
 
